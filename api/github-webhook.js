@@ -16,6 +16,7 @@ module.exports = async (req, res) => {
     const event = req.headers['x-github-event'];
     const payload = req.body;
     const DISCORD_WEBHOOK_URL = process.env.DISCORD_GITHUB_WEBHOOK_URL;
+    const GITHUB_TOKEN = process.env.GITHUB_TOKEN;
 
     if (!DISCORD_WEBHOOK_URL) {
       console.error('DISCORD_GITHUB_WEBHOOK_URL not set');
@@ -34,11 +35,28 @@ module.exports = async (req, res) => {
       let totalDeletions = 0;
       const files = new Set();
       
-      commits.forEach(commit => {
-        totalAdditions += commit.stats?.additions || 0;
-        totalDeletions += commit.stats?.deletions || 0;
+      for (const commit of commits) {
+        if (commit.stats?.additions) {
+          totalAdditions += commit.stats.additions;
+          totalDeletions += commit.stats.deletions;
+        } else if (GITHUB_TOKEN) {
+          try {
+            const commitUrl = `https://api.github.com/repos/${repository.full_name}/commits/${commit.id}`;
+            const response = await fetch(commitUrl, {
+              headers: { 'Authorization': `Bearer ${GITHUB_TOKEN}` }
+            });
+            const data = await response.json();
+            if (data.stats) {
+              totalAdditions += data.stats.additions || 0;
+              totalDeletions += data.stats.deletions || 0;
+            }
+          } catch (err) {
+            console.error(`Failed to fetch commit stats for ${commit.id}:`, err);
+          }
+        }
+        
         [...(commit.added || []), ...(commit.modified || []), ...(commit.removed || [])].forEach(f => files.add(f));
-      });
+      }
       
       const pusherUsername = pusher?.name || commits[0]?.author?.username || sender?.login || 'Unknown';
       const avatarUrl = sender?.avatar_url || `https://github.com/${pusherUsername}.png`;
@@ -490,7 +508,7 @@ module.exports = async (req, res) => {
       });
     }
     
-     res.status(200).send('OK');
+    res.status(200).send('OK');
   } catch (error) {
     console.error('Error:', error);
     res.status(500).send('Error');
