@@ -54,7 +54,7 @@ Or manually:
 git clone https://github.com/KaloudasDev/github-webhook.git
 cd github-webhook
 vercel deploy
-
+```
 
 ### 2. Configure Environment Variables
 
@@ -63,7 +63,7 @@ Add these environment variables to your Vercel project:
 | Variable | Description | Required |
 |----------|-------------|----------|
 | `DISCORD_GITHUB_WEBHOOK_URL` | Your Discord webhook URL | Yes |
-| `GITHUB_TOKEN` | GitHub Personal Access Token (for private repos) | Optional* |
+| `GITHUB_TOKEN` | GitHub Personal Access Token (For Private Repos) | Optional* |
 
 *\*Required only if you want accurate commit stats for private repositories. Public repos work without it.*
 
@@ -106,7 +106,7 @@ For each repository you want to monitor:
 
 ### Push Event
 ```
-KaloudasDev/your-repo
+KaloudasDev/github-webhook
 [abc1234] Update README — KaloudasDev
 
 Files: 1
@@ -117,7 +117,7 @@ GitHub
 
 ### Pull Request Event
 ```
-KaloudasDev/your-repo - Pull Request Opened
+KaloudasDev/github-webhook - Pull Request Opened
 Add new feature
 
 Branch: feature → main
@@ -128,7 +128,7 @@ GitHub
 
 ### Issue Event
 ```
-KaloudasDev/your-repo - Issue Opened
+KaloudasDev/github-webhook - Issue Opened
 Bug: Login not working
 
 Issue: #42
@@ -209,6 +209,3 @@ Contributions are welcome! Please ensure:
 - Code follows existing patterns
 - All events are handled properly
 - Discord embeds remain clean and informative
-
-> [!TIP]
-> You can use this service for multiple repositories simultaneously. Just add the same webhook URL to all your GitHub repositories.
