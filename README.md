@@ -4,7 +4,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 A universal webhook service that forwards GitHub events to Discord with beautiful, information-rich embeds.  
-Deploy once and use across all your repositories.
+Deploy once, use across all your repositories, completely free, open-source, serverless, and scalable.
 
 ## Features
 
