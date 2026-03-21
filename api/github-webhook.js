@@ -412,7 +412,7 @@ module.exports = async (req, res) => {
         url: repository.html_url,
         description: `${sender.login} started watching ${repository.full_name}`,
         fields: [
-          { name: 'Watchers', value: `${repository.subscribers_count}`, inline: true }
+          { name: 'Watchers', value: `${repository.watchers_count || repository.watchers || 0}`, inline: true }
         ],
         footer: {
           text: `GitHub`,
