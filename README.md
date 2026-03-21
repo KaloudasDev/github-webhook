@@ -3,7 +3,8 @@
 [![Deployed on Vercel](https://img.shields.io/badge/Deployed%20on-Vercel-black.svg)](https://vercel.com)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-A universal webhook service that forwards GitHub events to Discord with beautiful, information-rich embeds. Deploy once and use across all your repositories.
+A universal webhook service that forwards GitHub events to Discord with beautiful, information-rich embeds.
+Deploy once and use across all your repositories.
 
 ## Features
 
@@ -173,4 +174,4 @@ Contributions are welcome! Please ensure:
 - Discord embeds remain clean and informative
 
 > [!IMPORTANT]
-> Make sure to set the `DISCORD_GITHUB_WEBHOOK_URL` environment variable in Vercel before using the service. Without it, no messages will be sent to Discord.
+> Make sure to set the `DISCORD_GITHUB_WEBHOOK_URL` environment variable in Vercel before using the service.
