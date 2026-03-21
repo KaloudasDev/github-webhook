@@ -78,7 +78,7 @@ For each repository you want to monitor:
 
 ### Push Event
 ```
-KaloudasDev/your-repo
+KaloudasDev/github-webhook
 [abc1234] Update README — KaloudasDev
 
 Files: 1
@@ -89,7 +89,7 @@ GitHub
 
 ### Pull Request Event
 ```
-KaloudasDev/your-repo - Pull Request Opened
+KaloudasDev/github-webhook - Pull Request Opened
 Add new feature
 
 Branch: feature → main
@@ -100,7 +100,7 @@ GitHub
 
 ### Issue Event
 ```
-KaloudasDev/your-repo - Issue Opened
+KaloudasDev/github-webhook - Issue Opened
 Bug: Login not working
 
 Issue: #42
