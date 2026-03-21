@@ -5,5 +5,15 @@
       "src": "api/**/*.js",
       "use": "@vercel/node"
     }
+  ],
+  "routes": [
+    {
+      "src": "/api/github-webhook",
+      "dest": "/api/github-webhook.js"
+    },
+    {
+      "src": "/(.*)",
+      "dest": "/api/github-webhook.js"
+    }
   ]
 }
