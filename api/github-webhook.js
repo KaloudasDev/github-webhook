@@ -63,8 +63,8 @@ module.exports = async (req, res) => {
         description: commitMessages.length > 4096 ? commitMessages.slice(0, 4096) + '...' : commitMessages,
         fields: [
           { name: 'Files', value: `**${files.size}**`, inline: true },
-          { name: 'Additions', value: `**+${totalAdditions}**`, inline: true },
-          { name: 'Deletions', value: `**-${totalDeletions}**`, inline: true }
+          { name: 'Additions', value: `**+${totalAdditions}** Lines`, inline: true },
+          { name: 'Deletions', value: `**-${totalDeletions}** Lines`, inline: true }
         ],
         footer: {
           text: `GitHub`,
@@ -116,7 +116,7 @@ module.exports = async (req, res) => {
         fields: [
           { name: 'Branch', value: `${pull_request.head.ref} → ${pull_request.base.ref}`, inline: true },
           { name: 'Commits', value: `${pull_request.commits}`, inline: true },
-          { name: 'Changes', value: `+${pull_request.additions} / -${pull_request.deletions}`, inline: true }
+          { name: 'Changes', value: `+${pull_request.additions} / -${pull_request.deletions} Lines`, inline: true }
         ],
         footer: {
           text: `GitHub`,
