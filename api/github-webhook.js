@@ -35,8 +35,8 @@ module.exports = async (req, res) => {
       const files = new Set();
       
       commits.forEach(commit => {
-        totalAdditions += commit.added?.length || 0;
-        totalDeletions += commit.removed?.length || 0;
+        totalAdditions += commit.stats?.additions || 0;
+        totalDeletions += commit.stats?.deletions || 0;
         [...(commit.added || []), ...(commit.modified || []), ...(commit.removed || [])].forEach(f => files.add(f));
       });
       
@@ -490,7 +490,7 @@ module.exports = async (req, res) => {
       });
     }
     
-    res.status(200).send('OK');
+     res.status(200).send('OK');
   } catch (error) {
     console.error('Error:', error);
     res.status(500).send('Error');
