@@ -1,6 +1,28 @@
 {
   "name": "github-webhook",
   "version": "1.0.0",
-  "description": "GitHub to Discord webhook service",
-  "main": "api/github-webhook.js"
+  "description": "A universal GitHub to Discord webhook service that forwards GitHub events to Discord with beautiful embeds",
+  "main": "api/github-webhook.js",
+  "scripts": {
+    "start": "node api/github-webhook.js"
+  },
+  "keywords": [
+    "github",
+    "discord",
+    "webhook",
+    "github-webhook",
+    "discord-webhook",
+    "github-events",
+    "discord-embeds"
+  ],
+  "author": "KaloudasDev",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/KaloudasDev/github-discord-webhook"
+  },
+  "bugs": {
+    "url": "https://github.com/KaloudasDev/github-discord-webhook/issues"
+  },
+  "homepage": "https://github.com/KaloudasDev/github-discord-webhook#readme"
 }

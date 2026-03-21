@@ -204,7 +204,7 @@ module.exports = async (req, res) => {
       }
       
       const embed = {
-        color: 0x516989,
+        color: 0x6D9EDC,
         author: {
           name: sender.login,
           icon_url: sender.avatar_url,
