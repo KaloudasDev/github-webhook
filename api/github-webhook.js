@@ -1,4 +1,13 @@
 module.exports = async (req, res) => {
+  if (req.method === 'GET') {
+    return res.status(200).json({
+      status: 'ok',
+      message: 'GitHub webhook service is running',
+      usage: 'Send POST requests with GitHub webhook events',
+      endpoints: ['/api/github-webhook (POST only)']
+    });
+  }
+
   if (req.method !== 'POST') {
     return res.status(405).send('Method not allowed');
   }
