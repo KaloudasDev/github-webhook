@@ -69,6 +69,8 @@ module.exports = async (req, res) => {
       }).join('\n');
       
       const fileCountText = files.size === 1 ? '1 File' : `${files.size} Files`;
+      const additionsText = totalAdditions === 1 ? '1 Line' : `${totalAdditions} Lines`;
+      const deletionsText = totalDeletions === 1 ? '1 Line' : `${totalDeletions} Lines`;
       
       const embed = {
         color: 0x516989,
@@ -82,8 +84,8 @@ module.exports = async (req, res) => {
         description: commitMessages.length > 4096 ? commitMessages.slice(0, 4096) + '...' : commitMessages,
         fields: [
           { name: 'Changes', value: `${fileCountText}`, inline: true },
-          { name: 'Additions', value: `+${totalAdditions} Lines`, inline: true },
-          { name: 'Deletions', value: `${totalDeletions} Lines`, inline: true }
+          { name: 'Additions', value: `${additionsText}`, inline: true },
+          { name: 'Deletions', value: `${deletionsText}`, inline: true }
         ],
         footer: {
           text: `GitHub`,
@@ -122,6 +124,9 @@ module.exports = async (req, res) => {
         title = pull_request.merged ? 'Pull Request Merged' : 'Pull Request Closed';
       }
       
+      const additionsText = pull_request.additions === 1 ? '1 Line' : `${pull_request.additions} Lines`;
+      const deletionsText = pull_request.deletions === 1 ? '1 Line' : `${pull_request.deletions} Lines`;
+      
       const embed = {
         color: color,
         author: {
@@ -135,7 +140,7 @@ module.exports = async (req, res) => {
         fields: [
           { name: 'Branch', value: `${pull_request.head.ref} → ${pull_request.base.ref}`, inline: true },
           { name: 'Commits', value: `${pull_request.commits}`, inline: true },
-          { name: 'Changes', value: `+${pull_request.additions} / -${pull_request.deletions} Lines`, inline: true }
+          { name: 'Changes', value: `${additionsText} / ${deletionsText}`, inline: true }
         ],
         footer: {
           text: `GitHub`,
