@@ -65,9 +65,10 @@ module.exports = async (req, res) => {
         const shortHash = commit.id.slice(0, 7);
         const commitUrl = commit.url || `https://github.com/${repository.full_name}/commit/${commit.id}`;
         const message = commit.message.split('\n')[0];
-        const author = commit.author?.username || commit.committer?.username || pusher?.name || sender?.login;
-        return `[\`${shortHash}\`](${commitUrl}) ${message} — ${author}`;
+        return `[\`${shortHash}\`](${commitUrl}) ${message}`;
       }).join('\n');
+      
+      const fileCountText = files.size === 1 ? '1 File' : `${files.size} Files`;
       
       const embed = {
         color: 0x516989,
@@ -80,9 +81,9 @@ module.exports = async (req, res) => {
         url: `https://github.com/${repository.full_name}/commits/${branch}`,
         description: commitMessages.length > 4096 ? commitMessages.slice(0, 4096) + '...' : commitMessages,
         fields: [
-          { name: 'Files', value: `**${files.size}**`, inline: true },
-          { name: 'Additions', value: `**+${totalAdditions}** Lines`, inline: true },
-          { name: 'Deletions', value: `**-${totalDeletions}** Lines`, inline: true }
+          { name: 'Changes', value: `${fileCountText}`, inline: true },
+          { name: 'Additions', value: `+${totalAdditions} Lines`, inline: true },
+          { name: 'Deletions', value: `${totalDeletions} Lines`, inline: true }
         ],
         footer: {
           text: `GitHub`,
