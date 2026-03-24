@@ -12,6 +12,17 @@ module.exports = async (req, res) => {
     return res.status(405).send('Method not allowed');
   }
 
+  function truncateMessage(message, maxLength = 60) {
+    if (!message) return '';
+    if (message.length <= maxLength) return message;
+    
+    const lastSpace = message.lastIndexOf(' ', maxLength - 3);
+    if (lastSpace > 0) {
+      return message.substring(0, lastSpace) + '...';
+    }
+    return message.substring(0, maxLength - 3) + '...';
+  }
+
   try {
     const event = req.headers['x-github-event'];
     const payload = req.body;
@@ -65,7 +76,8 @@ module.exports = async (req, res) => {
         const shortHash = commit.id.slice(0, 7);
         const commitUrl = commit.url || `https://github.com/${repository.full_name}/commit/${commit.id}`;
         const message = commit.message.split('\n')[0];
-        return `[\`${shortHash}\`](${commitUrl}) ${message}`;
+        const truncatedMessage = truncateMessage(message, 60);
+        return `[\`${shortHash}\`](${commitUrl}) ${truncatedMessage}`;
       }).join('\n');
       
       const fileCountText = files.size === 1 ? '1 File' : `${files.size} Files`;
