@@ -23,6 +23,17 @@ module.exports = async (req, res) => {
     return message.substring(0, maxLength - 3) + '...';
   }
 
+  async function sendToDiscord(embed) {
+    const DISCORD_WEBHOOK_URL = process.env.DISCORD_GITHUB_WEBHOOK_URL;
+    if (!DISCORD_WEBHOOK_URL) return;
+    
+    await fetch(DISCORD_WEBHOOK_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ embeds: [embed] })
+    });
+  }
+
   try {
     const event = req.headers['x-github-event'];
     const payload = req.body;
@@ -106,49 +117,64 @@ module.exports = async (req, res) => {
         timestamp: new Date().toISOString()
       };
 
-      await fetch(DISCORD_WEBHOOK_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ embeds: [embed] })
-      });
+      await sendToDiscord(embed);
     }
     
+    // ==================== PULL REQUESTS ====================
     else if (event === 'pull_request') {
-      const { action, pull_request, repository } = payload;
+      const { action, pull_request, repository, sender } = payload;
       
-      const relevantActions = ['opened', 'closed', 'reopened', 'ready_for_review'];
+      const relevantActions = ['opened', 'closed', 'reopened', 'ready_for_review', 'assigned', 'unassigned', 'labeled', 'unlabeled', 'locked', 'unlocked', 'converted_to_draft', 'review_requested', 'review_request_removed', 'synchronize', 'auto_merge_enabled', 'auto_merge_disabled', 'enqueued', 'dequeued'];
+      
       if (!relevantActions.includes(action)) {
         return res.status(200).send('OK');
       }
       
       let color, title;
-      if (action === 'opened') {
-        color = 0x9c3712;
-        title = 'Pull Request Opened';
-      } else if (action === 'reopened') {
-        color = 0x9c3712;
-        title = 'Pull Request Reopened';
-      } else if (action === 'ready_for_review') {
-        color = 0x9c3712;
-        title = 'Pull Request Ready for Review';
-      } else if (action === 'closed') {
-        color = pull_request.merged ? 0x6e5494 : 0xe74c3c;
-        title = pull_request.merged ? 'Pull Request Merged' : 'Pull Request Closed';
+      switch(action) {
+        case 'opened': color = 0x9c3712; title = 'Pull Request Opened'; break;
+        case 'reopened': color = 0x9c3712; title = 'Pull Request Reopened'; break;
+        case 'ready_for_review': color = 0x9c3712; title = 'Pull Request Ready for Review'; break;
+        case 'closed': color = pull_request.merged ? 0x6e5494 : 0xe74c3c; title = pull_request.merged ? 'Pull Request Merged' : 'Pull Request Closed'; break;
+        case 'assigned': color = 0x9c3712; title = 'Pull Request Assigned'; break;
+        case 'unassigned': color = 0x9c3712; title = 'Pull Request Unassigned'; break;
+        case 'labeled': color = 0x9c3712; title = 'Pull Request Labeled'; break;
+        case 'unlabeled': color = 0x9c3712; title = 'Pull Request Unlabeled'; break;
+        case 'locked': color = 0xe74c3c; title = 'Pull Request Locked'; break;
+        case 'unlocked': color = 0x9c3712; title = 'Pull Request Unlocked'; break;
+        case 'converted_to_draft': color = 0x95a5a6; title = 'Pull Request Converted to Draft'; break;
+        case 'review_requested': color = 0x9c3712; title = 'Review Requested'; break;
+        case 'review_request_removed': color = 0xe74c3c; title = 'Review Request Removed'; break;
+        case 'synchronize': color = 0x516989; title = 'Pull Request Synchronized'; break;
+        case 'auto_merge_enabled': color = 0x9c3712; title = 'Auto Merge Enabled'; break;
+        case 'auto_merge_disabled': color = 0xe74c3c; title = 'Auto Merge Disabled'; break;
+        case 'enqueued': color = 0x9c3712; title = 'Pull Request Enqueued'; break;
+        case 'dequeued': color = 0xe74c3c; title = 'Pull Request Dequeued'; break;
+        default: return res.status(200).send('OK');
       }
       
       const additionsText = pull_request.additions === 1 ? '1 Line' : `${pull_request.additions} Lines`;
       const deletionsText = pull_request.deletions === 1 ? '1 Line' : `${pull_request.deletions} Lines`;
       
+      let description = `**${pull_request.title}**\n\n`;
+      if (action === 'assigned') description += `Assigned to: ${pull_request.assignee?.login || 'Unknown'}`;
+      else if (action === 'unassigned') description += `Unassigned from: ${pull_request.assignee?.login || 'Unknown'}`;
+      else if (action === 'labeled') description += `Label: ${payload.label?.name || 'Unknown'}`;
+      else if (action === 'unlabeled') description += `Label: ${payload.label?.name || 'Unknown'}`;
+      else if (action === 'review_requested') description += `Reviewer: ${payload.requested_reviewer?.login || 'Unknown'}`;
+      else if (action === 'review_request_removed') description += `Reviewer: ${payload.requested_reviewer?.login || 'Unknown'}`;
+      else description += pull_request.body?.slice(0, 500) || '*No description provided*';
+      
       const embed = {
         color: color,
         author: {
-          name: pull_request.user.login,
-          icon_url: pull_request.user.avatar_url,
-          url: pull_request.user.html_url
+          name: sender?.login || pull_request.user.login,
+          icon_url: sender?.avatar_url || pull_request.user.avatar_url,
+          url: sender?.html_url || pull_request.user.html_url
         },
         title: `${repository.full_name} - ${title}`,
         url: pull_request.html_url,
-        description: `**${pull_request.title}**\n\n${pull_request.body?.slice(0, 500) || '*No description provided*'}`,
+        description: description,
         fields: [
           { name: 'Branch', value: `${pull_request.head.ref} → ${pull_request.base.ref}`, inline: true },
           { name: 'Commits', value: `${pull_request.commits}`, inline: true },
@@ -161,47 +187,32 @@ module.exports = async (req, res) => {
         timestamp: new Date().toISOString()
       };
 
-      await fetch(DISCORD_WEBHOOK_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ embeds: [embed] })
-      });
+      await sendToDiscord(embed);
     }
     
+    // ==================== ISSUES ====================
     else if (event === 'issues') {
-      const { action, issue, repository, sender } = payload;
+      const { action, issue, repository, sender, label, assignee } = payload;
       
       let color, title, description;
-      if (action === 'opened') {
-        color = 0x9c3712;
-        title = 'Issue Opened';
-        description = `**${issue.title}**\n\n${issue.body?.slice(0, 500) || '*No description provided*'}`;
-      } else if (action === 'closed') {
-        color = 0xe74c3c;
-        title = 'Issue Closed';
-        description = `**${issue.title}**`;
-      } else if (action === 'reopened') {
-        color = 0x9c3712;
-        title = 'Issue Reopened';
-        description = `**${issue.title}**`;
-      } else if (action === 'assigned') {
-        color = 0x9c3712;
-        title = 'Issue Assigned';
-        description = `**${issue.title}**\nAssigned to: ${issue.assignee?.login || 'Unknown'}`;
-      } else if (action === 'unassigned') {
-        color = 0x9c3712;
-        title = 'Issue Unassigned';
-        description = `**${issue.title}**\nUnassigned from: ${issue.assignee?.login || 'Unknown'}`;
-      } else if (action === 'labeled') {
-        color = 0x9c3712;
-        title = 'Issue Labeled';
-        description = `**${issue.title}**\nLabel: ${issue.label?.name || 'Unknown'}`;
-      } else if (action === 'unlabeled') {
-        color = 0x9c3712;
-        title = 'Issue Unlabeled';
-        description = `**${issue.title}**\nLabel: ${issue.label?.name || 'Unknown'}`;
-      } else {
-        return res.status(200).send('OK');
+      switch(action) {
+        case 'opened': color = 0x9c3712; title = 'Issue Opened'; description = `**${issue.title}**\n\n${issue.body?.slice(0, 500) || '*No description provided*'}`; break;
+        case 'closed': color = 0xe74c3c; title = 'Issue Closed'; description = `**${issue.title}**`; break;
+        case 'reopened': color = 0x9c3712; title = 'Issue Reopened'; description = `**${issue.title}**`; break;
+        case 'assigned': color = 0x9c3712; title = 'Issue Assigned'; description = `**${issue.title}**\nAssigned to: ${assignee?.login || 'Unknown'}`; break;
+        case 'unassigned': color = 0x9c3712; title = 'Issue Unassigned'; description = `**${issue.title}**\nUnassigned from: ${assignee?.login || 'Unknown'}`; break;
+        case 'labeled': color = 0x9c3712; title = 'Issue Labeled'; description = `**${issue.title}**\nLabel: ${label?.name || 'Unknown'}`; break;
+        case 'unlabeled': color = 0x9c3712; title = 'Issue Unlabeled'; description = `**${issue.title}**\nLabel: ${label?.name || 'Unknown'}`; break;
+        case 'edited': color = 0x516989; title = 'Issue Edited'; description = `**${issue.title}**`; break;
+        case 'deleted': color = 0xe74c3c; title = 'Issue Deleted'; description = `Issue #${issue.number} was deleted`; break;
+        case 'transferred': color = 0x9c3712; title = 'Issue Transferred'; description = `**${issue.title}** was transferred`; break;
+        case 'pinned': color = 0x9c3712; title = 'Issue Pinned'; description = `**${issue.title}** was pinned`; break;
+        case 'unpinned': color = 0xe74c3c; title = 'Issue Unpinned'; description = `**${issue.title}** was unpinned`; break;
+        case 'milestoned': color = 0x9c3712; title = 'Issue Milestoned'; description = `**${issue.title}**\nMilestone: ${issue.milestone?.title || 'Unknown'}`; break;
+        case 'demilestoned': color = 0xe74c3c; title = 'Issue Demilestoned'; description = `**${issue.title}**`; break;
+        case 'locked': color = 0xe74c3c; title = 'Issue Locked'; description = `**${issue.title}** was locked`; break;
+        case 'unlocked': color = 0x9c3712; title = 'Issue Unlocked'; description = `**${issue.title}** was unlocked`; break;
+        default: return res.status(200).send('OK');
       }
       
       const embed = {
@@ -225,28 +236,29 @@ module.exports = async (req, res) => {
         timestamp: new Date().toISOString()
       };
 
-      await fetch(DISCORD_WEBHOOK_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ embeds: [embed] })
-      });
+      await sendToDiscord(embed);
     }
     
     else if (event === 'issue_comment') {
       const { action, issue, comment, repository, sender } = payload;
       
-      if (action !== 'created') {
+      if (!['created', 'edited', 'deleted'].includes(action)) {
         return res.status(200).send('OK');
       }
       
+      let color, title;
+      if (action === 'created') { color = 0x6D9EDC; title = 'Issue Comment Created'; }
+      else if (action === 'edited') { color = 0x516989; title = 'Issue Comment Edited'; }
+      else { color = 0xe74c3c; title = 'Issue Comment Deleted'; }
+      
       const embed = {
-        color: 0x6D9EDC,
+        color: color,
         author: {
           name: sender.login,
           icon_url: sender.avatar_url,
           url: sender.html_url
         },
-        title: `${repository.full_name} - Issue Comment`,
+        title: `${repository.full_name} - ${title}`,
         url: comment.html_url,
         description: `**${issue.title}**\n\n${comment.body?.slice(0, 500) || '*No comment content*'}`,
         fields: [
@@ -259,11 +271,7 @@ module.exports = async (req, res) => {
         timestamp: new Date().toISOString()
       };
 
-      await fetch(DISCORD_WEBHOOK_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ embeds: [embed] })
-      });
+      await sendToDiscord(embed);
     }
     
     else if (event === 'star') {
@@ -289,11 +297,7 @@ module.exports = async (req, res) => {
         timestamp: new Date().toISOString()
       };
 
-      await fetch(DISCORD_WEBHOOK_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ embeds: [embed] })
-      });
+      await sendToDiscord(embed);
     }
     
     else if (event === 'fork') {
@@ -319,34 +323,24 @@ module.exports = async (req, res) => {
         timestamp: new Date().toISOString()
       };
 
-      await fetch(DISCORD_WEBHOOK_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ embeds: [embed] })
-      });
+      await sendToDiscord(embed);
     }
     
     else if (event === 'release') {
       const { action, release, repository, sender } = payload;
       
-      const relevantActions = ['published', 'created', 'edited', 'deleted'];
+      const relevantActions = ['published', 'created', 'edited', 'deleted', 'unpublished'];
       if (!relevantActions.includes(action)) {
         return res.status(200).send('OK');
       }
       
       let color, title;
-      if (action === 'published') {
-        color = 0x9c3712;
-        title = 'Release Published';
-      } else if (action === 'created') {
-        color = 0x9c3712;
-        title = 'Release Created';
-      } else if (action === 'edited') {
-        color = 0x9c3712;
-        title = 'Release Edited';
-      } else {
-        color = 0xe74c3c;
-        title = 'Release Deleted';
+      switch(action) {
+        case 'published': color = 0x9c3712; title = 'Release Published'; break;
+        case 'created': color = 0x9c3712; title = 'Release Created'; break;
+        case 'edited': color = 0x516989; title = 'Release Edited'; break;
+        case 'unpublished': color = 0xe74c3c; title = 'Release Unpublished'; break;
+        default: color = 0xe74c3c; title = 'Release Deleted';
       }
       
       const embed = {
@@ -369,11 +363,7 @@ module.exports = async (req, res) => {
         timestamp: new Date().toISOString()
       };
 
-      await fetch(DISCORD_WEBHOOK_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ embeds: [embed] })
-      });
+      await sendToDiscord(embed);
     }
     
     else if (event === 'create') {
@@ -396,11 +386,7 @@ module.exports = async (req, res) => {
         timestamp: new Date().toISOString()
       };
 
-      await fetch(DISCORD_WEBHOOK_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ embeds: [embed] })
-      });
+      await sendToDiscord(embed);
     }
     
     else if (event === 'delete') {
@@ -423,11 +409,7 @@ module.exports = async (req, res) => {
         timestamp: new Date().toISOString()
       };
 
-      await fetch(DISCORD_WEBHOOK_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ embeds: [embed] })
-      });
+      await sendToDiscord(embed);
     }
     
     else if (event === 'watch') {
@@ -457,30 +439,42 @@ module.exports = async (req, res) => {
         timestamp: new Date().toISOString()
       };
 
-      await fetch(DISCORD_WEBHOOK_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ embeds: [embed] })
-      });
+      await sendToDiscord(embed);
     }
     
     else if (event === 'member') {
-      const { action, member, repository, sender } = payload;
+      const { action, member, repository, sender, changes } = payload;
       
-      if (action !== 'added') {
+      let color, title, description;
+      if (action === 'added') {
+        color = 0x9c3712;
+        title = 'Collaborator Added';
+        description = `${sender.login} added ${member.login} as a collaborator to ${repository.full_name}`;
+      } else if (action === 'removed') {
+        color = 0xe74c3c;
+        title = 'Collaborator Removed';
+        description = `${sender.login} removed ${member.login} from ${repository.full_name}`;
+      } else if (action === 'edited') {
+        color = 0x516989;
+        title = 'Collaborator Permissions Changed';
+        description = `${sender.login} changed permissions for ${member.login} in ${repository.full_name}`;
+        if (changes?.permission) {
+          description += `\nFrom: ${changes.permission.from} → To: ${changes.permission.to}`;
+        }
+      } else {
         return res.status(200).send('OK');
       }
       
       const embed = {
-        color: 0x9c3712,
+        color: color,
         author: {
           name: sender.login,
           icon_url: sender.avatar_url,
           url: sender.html_url
         },
-        title: 'Collaborator Added',
+        title: title,
         url: repository.html_url,
-        description: `${sender.login} added ${member.login} as a collaborator to ${repository.full_name}`,
+        description: description,
         footer: {
           text: `GitHub`,
           icon_url: 'https://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png'
@@ -488,28 +482,29 @@ module.exports = async (req, res) => {
         timestamp: new Date().toISOString()
       };
 
-      await fetch(DISCORD_WEBHOOK_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ embeds: [embed] })
-      });
+      await sendToDiscord(embed);
     }
     
     else if (event === 'commit_comment') {
       const { action, comment, repository, sender } = payload;
       
-      if (action !== 'created') {
+      if (!['created', 'edited', 'deleted'].includes(action)) {
         return res.status(200).send('OK');
       }
       
+      let color, title;
+      if (action === 'created') { color = 0x516989; title = 'Commit Comment Created'; }
+      else if (action === 'edited') { color = 0x516989; title = 'Commit Comment Edited'; }
+      else { color = 0xe74c3c; title = 'Commit Comment Deleted'; }
+      
       const embed = {
-        color: 0x516989,
+        color: color,
         author: {
           name: sender.login,
           icon_url: sender.avatar_url,
           url: sender.html_url
         },
-        title: `${repository.full_name} - Commit Comment`,
+        title: `${repository.full_name} - ${title}`,
         url: comment.html_url,
         description: `**${comment.commit_id?.slice(0, 7)}**\n\n${comment.body?.slice(0, 500) || '*No comment content*'}`,
         footer: {
@@ -519,13 +514,849 @@ module.exports = async (req, res) => {
         timestamp: new Date().toISOString()
       };
 
-      await fetch(DISCORD_WEBHOOK_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ embeds: [embed] })
-      });
+      await sendToDiscord(embed);
     }
     
+    else if (event === 'branch_protection_configuration') {
+      const { action, repository, sender } = payload;
+      
+      const embed = {
+        color: action === 'enabled' ? 0x9c3712 : 0xe74c3c,
+        author: {
+          name: sender.login,
+          icon_url: sender.avatar_url,
+          url: sender.html_url
+        },
+        title: action === 'enabled' ? 'Branch Protections Enabled' : 'Branch Protections Disabled',
+        url: repository.html_url,
+        description: `${sender.login} ${action === 'enabled' ? 'enabled' : 'disabled'} all branch protections for ${repository.full_name}`,
+        footer: {
+          text: `GitHub`,
+          icon_url: 'https://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png'
+        },
+        timestamp: new Date().toISOString()
+      };
+
+      await sendToDiscord(embed);
+    }
+    
+    else if (event === 'branch_protection_rule') {
+      const { action, rule, repository, sender } = payload;
+      
+      let title;
+      if (action === 'create') title = 'Branch Protection Rule Created';
+      else if (action === 'delete') title = 'Branch Protection Rule Deleted';
+      else title = 'Branch Protection Rule Edited';
+      
+      const embed = {
+        color: action === 'delete' ? 0xe74c3c : 0x9c3712,
+        author: {
+          name: sender.login,
+          icon_url: sender.avatar_url,
+          url: sender.html_url
+        },
+        title: title,
+        url: repository.html_url,
+        description: `${sender.login} ${action === 'create' ? 'created' : action === 'delete' ? 'deleted' : 'edited'} protection rule for ${repository.full_name}\nPattern: \`${rule?.pattern || 'N/A'}\``,
+        footer: {
+          text: `GitHub`,
+          icon_url: 'https://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png'
+        },
+        timestamp: new Date().toISOString()
+      };
+
+      await sendToDiscord(embed);
+    }
+    
+    else if (event === 'check_run') {
+      const { action, check_run, repository, sender } = payload;
+      
+      const relevantActions = ['created', 'completed', 'rerequested'];
+      if (!relevantActions.includes(action)) return res.status(200).send('OK');
+      
+      let color;
+      if (check_run?.conclusion === 'success') color = 0x2ecc71;
+      else if (check_run?.conclusion === 'failure') color = 0xe74c3c;
+      else if (check_run?.conclusion === 'neutral') color = 0x95a5a6;
+      else color = 0x516989;
+      
+      const embed = {
+        color: color,
+        author: {
+          name: sender.login,
+          icon_url: sender.avatar_url,
+          url: sender.html_url
+        },
+        title: `Check Run ${action.charAt(0).toUpperCase() + action.slice(1)}`,
+        url: check_run.html_url,
+        description: `**${check_run.name}**\nStatus: ${check_run.status}\nConclusion: ${check_run.conclusion || 'N/A'}`,
+        fields: [
+          { name: 'Repository', value: repository.full_name, inline: true },
+          { name: 'Commit', value: check_run.head_sha?.slice(0, 7) || 'N/A', inline: true }
+        ],
+        footer: {
+          text: `GitHub`,
+          icon_url: 'https://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png'
+        },
+        timestamp: new Date().toISOString()
+      };
+
+      await sendToDiscord(embed);
+    }
+    
+    else if (event === 'check_suite') {
+      const { action, check_suite, repository, sender } = payload;
+      
+      const relevantActions = ['requested', 'completed', 'rerequested'];
+      if (!relevantActions.includes(action)) return res.status(200).send('OK');
+      
+      const embed = {
+        color: action === 'completed' ? (check_suite?.conclusion === 'success' ? 0x2ecc71 : 0xe74c3c) : 0x516989,
+        author: {
+          name: sender.login,
+          icon_url: sender.avatar_url,
+          url: sender.html_url
+        },
+        title: `Check Suite ${action.charAt(0).toUpperCase() + action.slice(1)}`,
+        url: repository.html_url,
+        description: `Check suite for ${repository.full_name}\nStatus: ${check_suite?.status || 'N/A'}\nConclusion: ${check_suite?.conclusion || 'N/A'}`,
+        footer: {
+          text: `GitHub`,
+          icon_url: 'https://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png'
+        },
+        timestamp: new Date().toISOString()
+      };
+
+      await sendToDiscord(embed);
+    }
+    
+    else if (event === 'code_scanning_alert') {
+      const { action, alert, repository, sender } = payload;
+      
+      let color, title;
+      if (action === 'created') { color = 0xe74c3c; title = 'Code Scanning Alert Created'; }
+      else if (action === 'fixed') { color = 0x2ecc71; title = 'Code Scanning Alert Fixed'; }
+      else if (action === 'closed') { color = 0x95a5a6; title = 'Code Scanning Alert Closed'; }
+      else if (action === 'reopened') { color = 0xf1c40f; title = 'Code Scanning Alert Reopened'; }
+      else { return res.status(200).send('OK'); }
+      
+      const embed = {
+        color: color,
+        author: {
+          name: sender.login,
+          icon_url: sender.avatar_url,
+          url: sender.html_url
+        },
+        title: title,
+        url: alert.html_url,
+        description: `**${alert.rule?.name || 'Unknown rule'}**\n${alert.rule?.description?.slice(0, 200) || ''}\nSeverity: ${alert.rule?.severity || 'N/A'}`,
+        fields: [
+          { name: 'Repository', value: repository.full_name, inline: true },
+          { name: 'Tool', value: alert.tool?.name || 'N/A', inline: true }
+        ],
+        footer: {
+          text: `GitHub`,
+          icon_url: 'https://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png'
+        },
+        timestamp: new Date().toISOString()
+      };
+
+      await sendToDiscord(embed);
+    }
+    
+    else if (event === 'dependabot_alert') {
+      const { action, alert, repository, sender } = payload;
+      
+      let color, title;
+      switch(action) {
+        case 'created': color = 0xe74c3c; title = 'Dependabot Alert Created'; break;
+        case 'dismissed': color = 0x95a5a6; title = 'Dependabot Alert Dismissed'; break;
+        case 'fixed': color = 0x2ecc71; title = 'Dependabot Alert Fixed'; break;
+        case 'reopened': color = 0xf1c40f; title = 'Dependabot Alert Reopened'; break;
+        case 'auto_dismissed': color = 0x95a5a6; title = 'Dependabot Alert Auto-Dismissed'; break;
+        case 'auto_reopened': color = 0xf1c40f; title = 'Dependabot Alert Auto-Reopened'; break;
+        default: return res.status(200).send('OK');
+      }
+      
+      const embed = {
+        color: color,
+        author: {
+          name: sender.login,
+          icon_url: sender.avatar_url,
+          url: sender.html_url
+        },
+        title: title,
+        url: alert.html_url,
+        description: `**${alert.security_advisory?.summary || alert.security_vulnerability?.package?.name || 'Unknown'}**\nSeverity: ${alert.security_advisory?.severity || alert.security_vulnerability?.severity || 'N/A'}`,
+        fields: [
+          { name: 'Repository', value: repository.full_name, inline: true },
+          { name: 'Package', value: alert.security_vulnerability?.package?.name || 'N/A', inline: true }
+        ],
+        footer: {
+          text: `GitHub`,
+          icon_url: 'https://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png'
+        },
+        timestamp: new Date().toISOString()
+      };
+
+      await sendToDiscord(embed);
+    }
+    
+    else if (event === 'deploy_key') {
+      const { action, key, repository, sender } = payload;
+      
+      const embed = {
+        color: action === 'created' ? 0x9c3712 : 0xe74c3c,
+        author: {
+          name: sender.login,
+          icon_url: sender.avatar_url,
+          url: sender.html_url
+        },
+        title: action === 'created' ? 'Deploy Key Created' : 'Deploy Key Deleted',
+        url: repository.html_url,
+        description: `${sender.login} ${action === 'created' ? 'added' : 'removed'} deploy key "${key?.title || 'Unknown'}" in ${repository.full_name}`,
+        footer: {
+          text: `GitHub`,
+          icon_url: 'https://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png'
+        },
+        timestamp: new Date().toISOString()
+      };
+
+      await sendToDiscord(embed);
+    }
+    
+    else if (event === 'deployment') {
+      const { action, deployment, repository, sender } = payload;
+      
+      const embed = {
+        color: action === 'created' ? 0x9c3712 : 0xe74c3c,
+        author: {
+          name: sender.login,
+          icon_url: sender.avatar_url,
+          url: sender.html_url
+        },
+        title: action === 'created' ? 'Deployment Created' : 'Deployment Deleted',
+        url: repository.html_url,
+        description: `${sender.login} ${action === 'created' ? 'created' : 'deleted'} deployment for ${repository.full_name}\nEnvironment: ${deployment?.environment || 'N/A'}\nBranch: ${deployment?.ref || 'N/A'}`,
+        footer: {
+          text: `GitHub`,
+          icon_url: 'https://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png'
+        },
+        timestamp: new Date().toISOString()
+      };
+
+      await sendToDiscord(embed);
+    }
+    
+    else if (event === 'deployment_status') {
+      const { deployment_status, deployment, repository, sender } = payload;
+      
+      let color;
+      if (deployment_status.state === 'success') color = 0x2ecc71;
+      else if (deployment_status.state === 'failure') color = 0xe74c3c;
+      else if (deployment_status.state === 'pending') color = 0xf1c40f;
+      else color = 0x516989;
+      
+      const embed = {
+        color: color,
+        author: {
+          name: sender.login,
+          icon_url: sender.avatar_url,
+          url: sender.html_url
+        },
+        title: `Deployment Status: ${deployment_status.state}`,
+        url: deployment_status.target_url || deployment.html_url,
+        description: `Environment: ${deployment.environment || 'N/A'}\n${deployment_status.description || ''}`,
+        fields: [
+          { name: 'Repository', value: repository.full_name, inline: true },
+          { name: 'Commit', value: deployment.sha?.slice(0, 7) || 'N/A', inline: true }
+        ],
+        footer: {
+          text: `GitHub`,
+          icon_url: 'https://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png'
+        },
+        timestamp: new Date().toISOString()
+      };
+
+      await sendToDiscord(embed);
+    }
+    
+    else if (event === 'discussion') {
+      const { action, discussion, repository, sender } = payload;
+      
+      const embed = {
+        color: action === 'deleted' ? 0xe74c3c : 0x9c3712,
+        author: {
+          name: sender.login,
+          icon_url: sender.avatar_url,
+          url: sender.html_url
+        },
+        title: `Discussion ${action.charAt(0).toUpperCase() + action.slice(1)}`,
+        url: discussion.html_url,
+        description: `**${discussion.title}**\n${discussion.body?.slice(0, 300) || ''}`,
+        fields: [
+          { name: 'Repository', value: repository.full_name, inline: true },
+          { name: 'Category', value: discussion.category?.name || 'N/A', inline: true }
+        ],
+        footer: {
+          text: `GitHub`,
+          icon_url: 'https://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png'
+        },
+        timestamp: new Date().toISOString()
+      };
+
+      await sendToDiscord(embed);
+    }
+    
+    else if (event === 'discussion_comment') {
+      const { action, comment, discussion, repository, sender } = payload;
+      
+      const embed = {
+        color: action === 'deleted' ? 0xe74c3c : 0x6D9EDC,
+        author: {
+          name: sender.login,
+          icon_url: sender.avatar_url,
+          url: sender.html_url
+        },
+        title: `Discussion Comment ${action.charAt(0).toUpperCase() + action.slice(1)}`,
+        url: comment.html_url,
+        description: `**${discussion.title}**\n\n${comment.body?.slice(0, 500) || '*No content*'}`,
+        fields: [
+          { name: 'Repository', value: repository.full_name, inline: true }
+        ],
+        footer: {
+          text: `GitHub`,
+          icon_url: 'https://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png'
+        },
+        timestamp: new Date().toISOString()
+      };
+
+      await sendToDiscord(embed);
+    }
+    
+    else if (event === 'label') {
+      const { action, label, repository, sender } = payload;
+      
+      let title;
+      if (action === 'created') title = 'Label Created';
+      else if (action === 'edited') title = 'Label Edited';
+      else title = 'Label Deleted';
+      
+      const embed = {
+        color: action === 'deleted' ? 0xe74c3c : 0x9c3712,
+        author: {
+          name: sender.login,
+          icon_url: sender.avatar_url,
+          url: sender.html_url
+        },
+        title: title,
+        url: repository.html_url,
+        description: `${sender.login} ${action} label "${label?.name || 'Unknown'}" in ${repository.full_name}`,
+        fields: [
+          { name: 'Color', value: label?.color ? `#${label.color}` : 'N/A', inline: true }
+        ],
+        footer: {
+          text: `GitHub`,
+          icon_url: 'https://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png'
+        },
+        timestamp: new Date().toISOString()
+      };
+
+      await sendToDiscord(embed);
+    }
+    
+    else if (event === 'milestone') {
+      const { action, milestone, repository, sender } = payload;
+      
+      const embed = {
+        color: action === 'deleted' ? 0xe74c3c : 0x9c3712,
+        author: {
+          name: sender.login,
+          icon_url: sender.avatar_url,
+          url: sender.html_url
+        },
+        title: `Milestone ${action.charAt(0).toUpperCase() + action.slice(1)}`,
+        url: milestone.html_url,
+        description: `**${milestone.title}**\n${milestone.description?.slice(0, 200) || ''}\nDue: ${milestone.due_on ? new Date(milestone.due_on).toLocaleDateString() : 'Not set'}`,
+        fields: [
+          { name: 'Repository', value: repository.full_name, inline: true },
+          { name: 'Open Issues', value: `${milestone.open_issues}`, inline: true },
+          { name: 'Closed Issues', value: `${milestone.closed_issues}`, inline: true }
+        ],
+        footer: {
+          text: `GitHub`,
+          icon_url: 'https://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png'
+        },
+        timestamp: new Date().toISOString()
+      };
+
+      await sendToDiscord(embed);
+    }
+    
+    else if (event === 'package') {
+      const { action, package, repository, sender } = payload;
+      
+      const embed = {
+        color: action === 'updated' ? 0x516989 : 0x9c3712,
+        author: {
+          name: sender.login,
+          icon_url: sender.avatar_url,
+          url: sender.html_url
+        },
+        title: `Package ${action === 'published' ? 'Published' : 'Updated'}`,
+        url: package.html_url,
+        description: `**${package.name}**\nPackage: ${package.package_version?.name || 'N/A'}\nRegistry: ${package.package_type || 'N/A'}`,
+        fields: [
+          { name: 'Repository', value: repository.full_name, inline: true }
+        ],
+        footer: {
+          text: `GitHub`,
+          icon_url: 'https://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png'
+        },
+        timestamp: new Date().toISOString()
+      };
+
+      await sendToDiscord(embed);
+    }
+    
+    else if (event === 'page_build') {
+      const { build, repository, sender } = payload;
+      
+      const embed = {
+        color: build.status === 'built' ? 0x2ecc71 : 0xe74c3c,
+        author: {
+          name: sender?.login || 'GitHub',
+          icon_url: sender?.avatar_url || 'https://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png'
+        },
+        title: `Pages Build ${build.status === 'built' ? 'Succeeded' : 'Failed'}`,
+        url: repository.html_url,
+        description: `Pages site for ${repository.full_name} ${build.status === 'built' ? 'built successfully' : 'failed to build'}\nCommit: ${build.commit?.slice(0, 7) || 'N/A'}`,
+        footer: {
+          text: `GitHub`,
+          icon_url: 'https://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png'
+        },
+        timestamp: new Date().toISOString()
+      };
+
+      await sendToDiscord(embed);
+    }
+    
+    else if (event === 'pull_request_review') {
+      const { action, review, pull_request, repository, sender } = payload;
+      
+      let color;
+      if (review.state === 'approved') color = 0x2ecc71;
+      else if (review.state === 'changes_requested') color = 0xe74c3c;
+      else color = 0x516989;
+      
+      const embed = {
+        color: color,
+        author: {
+          name: sender.login,
+          icon_url: sender.avatar_url,
+          url: sender.html_url
+        },
+        title: `Pull Request Review ${action}`,
+        url: review.html_url,
+        description: `**${pull_request.title}**\nState: ${review.state}\n${review.body?.slice(0, 300) || ''}`,
+        fields: [
+          { name: 'Repository', value: repository.full_name, inline: true },
+          { name: 'PR #', value: `#${pull_request.number}`, inline: true }
+        ],
+        footer: {
+          text: `GitHub`,
+          icon_url: 'https://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png'
+        },
+        timestamp: new Date().toISOString()
+      };
+
+      await sendToDiscord(embed);
+    }
+    
+    else if (event === 'pull_request_review_comment') {
+      const { action, comment, pull_request, repository, sender } = payload;
+      
+      const embed = {
+        color: action === 'deleted' ? 0xe74c3c : 0x6D9EDC,
+        author: {
+          name: sender.login,
+          icon_url: sender.avatar_url,
+          url: sender.html_url
+        },
+        title: `PR Review Comment ${action}`,
+        url: comment.html_url,
+        description: `**${pull_request.title}**\n\n${comment.body?.slice(0, 500) || '*No content*'}`,
+        fields: [
+          { name: 'Repository', value: repository.full_name, inline: true },
+          { name: 'File', value: comment.path || 'N/A', inline: true }
+        ],
+        footer: {
+          text: `GitHub`,
+          icon_url: 'https://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png'
+        },
+        timestamp: new Date().toISOString()
+      };
+
+      await sendToDiscord(embed);
+    }
+    
+    else if (event === 'repository') {
+      const { action, repository, sender } = payload;
+      
+      let color;
+      if (action === 'created') color = 0x9c3712;
+      else if (action === 'deleted') color = 0xe74c3c;
+      else if (action === 'archived') color = 0x95a5a6;
+      else if (action === 'unarchived') color = 0x9c3712;
+      else if (action === 'publicized') color = 0x9c3712;
+      else if (action === 'privatized') color = 0xe74c3c;
+      else color = 0x516989;
+      
+      const embed = {
+        color: color,
+        author: {
+          name: sender.login,
+          icon_url: sender.avatar_url,
+          url: sender.html_url
+        },
+        title: `Repository ${action.charAt(0).toUpperCase() + action.slice(1)}`,
+        url: repository.html_url,
+        description: `${sender.login} ${action} repository ${repository.full_name}`,
+        footer: {
+          text: `GitHub`,
+          icon_url: 'https://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png'
+        },
+        timestamp: new Date().toISOString()
+      };
+
+      await sendToDiscord(embed);
+    }
+    
+    else if (event === 'repository_ruleset') {
+      const { action, ruleset, repository, sender } = payload;
+      
+      let title;
+      if (action === 'create') title = 'Repository Ruleset Created';
+      else if (action === 'delete') title = 'Repository Ruleset Deleted';
+      else title = 'Repository Ruleset Edited';
+      
+      const embed = {
+        color: action === 'delete' ? 0xe74c3c : 0x9c3712,
+        author: {
+          name: sender.login,
+          icon_url: sender.avatar_url,
+          url: sender.html_url
+        },
+        title: title,
+        url: repository.html_url,
+        description: `${sender.login} ${action}d ruleset "${ruleset?.name || 'Unknown'}" in ${repository.full_name}`,
+        footer: {
+          text: `GitHub`,
+          icon_url: 'https://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png'
+        },
+        timestamp: new Date().toISOString()
+      };
+
+      await sendToDiscord(embed);
+    }
+    
+    else if (event === 'secret_scanning_alert') {
+      const { action, alert, repository, sender } = payload;
+      
+      let color;
+      if (action === 'created') color = 0xe74c3c;
+      else if (action === 'resolved') color = 0x2ecc71;
+      else if (action === 'reopened') color = 0xf1c40f;
+      else color = 0x95a5a6;
+      
+      const embed = {
+        color: color,
+        author: {
+          name: sender.login,
+          icon_url: sender.avatar_url,
+          url: sender.html_url
+        },
+        title: `Secret Scanning Alert ${action}`,
+        url: alert.html_url,
+        description: `**${alert.secret_type}**\nLocation: ${alert.location?.path || 'N/A'}\nLine: ${alert.location?.start_line || 'N/A'}`,
+        fields: [
+          { name: 'Repository', value: repository.full_name, inline: true },
+          { name: 'Resolution', value: alert.resolution || 'N/A', inline: true }
+        ],
+        footer: {
+          text: `GitHub`,
+          icon_url: 'https://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png'
+        },
+        timestamp: new Date().toISOString()
+      };
+
+      await sendToDiscord(embed);
+    }
+    
+    else if (event === 'status') {
+      const { state, branches, repository, sender, sha, context, target_url, description } = payload;
+      
+      let color;
+      if (state === 'success') color = 0x2ecc71;
+      else if (state === 'failure') color = 0xe74c3c;
+      else if (state === 'pending') color = 0xf1c40f;
+      else color = 0x95a5a6;
+      
+      const embed = {
+        color: color,
+        author: {
+          name: sender.login,
+          icon_url: sender.avatar_url,
+          url: sender.html_url
+        },
+        title: `Commit Status: ${state}`,
+        url: target_url || `https://github.com/${repository.full_name}/commit/${sha}`,
+        description: `**${context || 'Unknown context'}**\n${description || ''}`,
+        fields: [
+          { name: 'Repository', value: repository.full_name, inline: true },
+          { name: 'Commit', value: sha?.slice(0, 7) || 'N/A', inline: true },
+          { name: 'Branches', value: branches?.map(b => b.name).join(', ') || 'N/A', inline: false }
+        ],
+        footer: {
+          text: `GitHub`,
+          icon_url: 'https://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png'
+        },
+        timestamp: new Date().toISOString()
+      };
+
+      await sendToDiscord(embed);
+    }
+    
+    else if (event === 'team_add') {
+      const { team, repository, sender } = payload;
+      
+      const embed = {
+        color: 0x9c3712,
+        author: {
+          name: sender.login,
+          icon_url: sender.avatar_url,
+          url: sender.html_url
+        },
+        title: 'Team Added to Repository',
+        url: repository.html_url,
+        description: `${sender.login} added team "${team.name}" to ${repository.full_name}\nPermission: ${team.permission || 'N/A'}`,
+        footer: {
+          text: `GitHub`,
+          icon_url: 'https://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png'
+        },
+        timestamp: new Date().toISOString()
+      };
+
+      await sendToDiscord(embed);
+    }
+    
+    else if (event === 'gollum') {
+      const { pages, repository, sender } = payload;
+      
+      const pageUpdates = pages.map(page => `- ${page.action}: [${page.title}](${page.html_url})`).join('\n');
+      
+      const embed = {
+        color: 0x516989,
+        author: {
+          name: sender.login,
+          icon_url: sender.avatar_url,
+          url: sender.html_url
+        },
+        title: 'Wiki Updated',
+        url: repository.html_url,
+        description: `${sender.login} updated wiki pages in ${repository.full_name}\n\n${pageUpdates}`,
+        footer: {
+          text: `GitHub`,
+          icon_url: 'https://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png'
+        },
+        timestamp: new Date().toISOString()
+      };
+
+      await sendToDiscord(embed);
+    }
+    
+    else if (event === 'workflow_job') {
+      const { action, workflow_job, repository, sender } = payload;
+      
+      let color;
+      if (workflow_job.conclusion === 'success') color = 0x2ecc71;
+      else if (workflow_job.conclusion === 'failure') color = 0xe74c3c;
+      else if (workflow_job.conclusion === 'cancelled') color = 0x95a5a6;
+      else if (workflow_job.status === 'queued' || workflow_job.status === 'waiting') color = 0xf1c40f;
+      else color = 0x516989;
+      
+      const embed = {
+        color: color,
+        author: {
+          name: sender.login,
+          icon_url: sender.avatar_url,
+          url: sender.html_url
+        },
+        title: `Workflow Job: ${action}`,
+        url: workflow_job.html_url,
+        description: `**${workflow_job.name}**\nStatus: ${workflow_job.status}\nConclusion: ${workflow_job.conclusion || 'N/A'}`,
+        fields: [
+          { name: 'Repository', value: repository.full_name, inline: true },
+          { name: 'Runner', value: workflow_job.runner_name || 'N/A', inline: true }
+        ],
+        footer: {
+          text: `GitHub`,
+          icon_url: 'https://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png'
+        },
+        timestamp: new Date().toISOString()
+      };
+
+      await sendToDiscord(embed);
+    }
+    
+    else if (event === 'workflow_run') {
+      const { action, workflow_run, repository, sender } = payload;
+      
+      let color;
+      if (workflow_run.conclusion === 'success') color = 0x2ecc71;
+      else if (workflow_run.conclusion === 'failure') color = 0xe74c3c;
+      else if (workflow_run.conclusion === 'cancelled') color = 0x95a5a6;
+      else if (workflow_run.status === 'in_progress') color = 0x516989;
+      else if (workflow_run.status === 'requested') color = 0xf1c40f;
+      else color = 0x516989;
+      
+      const embed = {
+        color: color,
+        author: {
+          name: sender.login,
+          icon_url: sender.avatar_url,
+          url: sender.html_url
+        },
+        title: `Workflow Run: ${action}`,
+        url: workflow_run.html_url,
+        description: `**${workflow_run.name || workflow_run.workflow?.name || 'Unknown'}**\nStatus: ${workflow_run.status}\nConclusion: ${workflow_run.conclusion || 'N/A'}`,
+        fields: [
+          { name: 'Repository', value: repository.full_name, inline: true },
+          { name: 'Event', value: workflow_run.event || 'N/A', inline: true },
+          { name: 'Branch', value: workflow_run.head_branch || 'N/A', inline: true }
+        ],
+        footer: {
+          text: `GitHub`,
+          icon_url: 'https://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png'
+        },
+        timestamp: new Date().toISOString()
+      };
+
+      await sendToDiscord(embed);
+    }
+    
+    else if (event === 'meta') {
+      const { action, hook, repository, sender } = payload;
+      
+      if (action === 'deleted') {
+        const embed = {
+          color: 0xe74c3c,
+          author: {
+            name: sender.login,
+            icon_url: sender.avatar_url,
+            url: sender.html_url
+          },
+          title: 'Webhook Deleted',
+          url: repository?.html_url || 'https://github.com',
+          description: `${sender.login} deleted webhook "${hook?.name || 'Unknown'}" from ${repository?.full_name || 'repository'}`,
+          footer: {
+            text: `GitHub`,
+            icon_url: 'https://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png'
+          },
+          timestamp: new Date().toISOString()
+        };
+
+        await sendToDiscord(embed);
+      }
+    }
+    
+    else if (event === 'security_and_analysis') {
+      const { changes, repository, sender } = payload;
+      
+      const features = [];
+      if (changes?.security_and_analysis?.advanced_security?.from !== undefined) {
+        features.push(`Advanced Security: ${changes.security_and_analysis.advanced_security.from ? 'disabled' : 'enabled'}`);
+      }
+      if (changes?.security_and_analysis?.secret_scanning?.from !== undefined) {
+        features.push(`Secret Scanning: ${changes.security_and_analysis.secret_scanning.from ? 'disabled' : 'enabled'}`);
+      }
+      if (changes?.security_and_analysis?.dependabot_security_updates?.from !== undefined) {
+        features.push(`Dependabot Security Updates: ${changes.security_and_analysis.dependabot_security_updates.from ? 'disabled' : 'enabled'}`);
+      }
+      
+      const embed = {
+        color: 0x516989,
+        author: {
+          name: sender.login,
+          icon_url: sender.avatar_url,
+          url: sender.html_url
+        },
+        title: 'Security & Analysis Features Changed',
+        url: repository.html_url,
+        description: `${sender.login} changed security settings for ${repository.full_name}\n\n${features.join('\n')}`,
+        footer: {
+          text: `GitHub`,
+          icon_url: 'https://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png'
+        },
+        timestamp: new Date().toISOString()
+      };
+
+      await sendToDiscord(embed);
+    }
+        else if (event === 'issue_dependencies') {
+      const { action, added_dependencies, removed_dependencies, repository, sender } = payload;
+      
+      const changes = [];
+      if (added_dependencies?.length) {
+        changes.push(`Added dependencies: ${added_dependencies.map(d => `#${d.issue_number}`).join(', ')}`);
+      }
+      if (removed_dependencies?.length) {
+        changes.push(`Removed dependencies: ${removed_dependencies.map(d => `#${d.issue_number}`).join(', ')}`);
+      }
+      
+      const embed = {
+        color: 0x516989,
+        author: {
+          name: sender.login,
+          icon_url: sender.avatar_url,
+          url: sender.html_url
+        },
+        title: `Issue Dependencies ${action}`,
+        url: repository.html_url,
+        description: `${sender.login} ${action} issue dependencies in ${repository.full_name}\n\n${changes.join('\n')}`,
+        footer: {
+          text: `GitHub`,
+          icon_url: 'https://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png'
+        },
+        timestamp: new Date().toISOString()
+      };
+
+      await sendToDiscord(embed);
+    }
+    
+      else if (event === 'public') {
+      const { repository, sender } = payload;
+      
+      const embed = {
+        color: 0x9c3712,
+        author: {
+          name: sender.login,
+          icon_url: sender.avatar_url,
+          url: sender.html_url
+        },
+        title: 'Repository Made Public',
+        url: repository.html_url,
+        description: `${sender.login} made ${repository.full_name} public`,
+        footer: {
+          text: `GitHub`,
+          icon_url: 'https://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png'
+        },
+        timestamp: new Date().toISOString()
+      };
+
+      await sendToDiscord(embed);
+    }
+
     res.status(200).send('OK');
   } catch (error) {
     console.error('Error:', error);
