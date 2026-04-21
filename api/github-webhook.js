@@ -34,8 +34,11 @@ module.exports = async (req, res) => {
     });
   }
 
+  const processedDeliveries = new Set();
+
   try {
     const event = req.headers['x-github-event'];
+    const deliveryId = req.headers['x-github-delivery'];
     const payload = req.body;
     const DISCORD_WEBHOOK_URL = process.env.DISCORD_GITHUB_WEBHOOK_URL;
     const GITHUB_TOKEN = process.env.GITHUB_TOKEN;
@@ -43,6 +46,16 @@ module.exports = async (req, res) => {
     if (!DISCORD_WEBHOOK_URL) {
       console.error('DISCORD_GITHUB_WEBHOOK_URL not set');
       return res.status(500).send('Webhook not configured');
+    }
+
+    if (processedDeliveries.has(deliveryId)) {
+      return res.status(200).send('OK');
+    }
+    processedDeliveries.add(deliveryId);
+    
+    if (processedDeliveries.size > 1000) {
+      const toDelete = [...processedDeliveries].slice(0, 500);
+      toDelete.forEach(id => processedDeliveries.delete(id));
     }
 
     if (event === 'push') {
@@ -566,68 +579,6 @@ module.exports = async (req, res) => {
       await sendToDiscord(embed);
     }
     
-    else if (event === 'check_run') {
-      const { action, check_run, repository, sender } = payload;
-      
-      const relevantActions = ['created', 'completed', 'rerequested'];
-      if (!relevantActions.includes(action)) return res.status(200).send('OK');
-      
-      let color;
-      if (check_run?.conclusion === 'success') color = 0x2ecc71;
-      else if (check_run?.conclusion === 'failure') color = 0xe74c3c;
-      else if (check_run?.conclusion === 'neutral') color = 0x95a5a6;
-      else color = 0x516989;
-      
-      const embed = {
-        color: color,
-        author: {
-          name: sender.login,
-          icon_url: sender.avatar_url,
-          url: sender.html_url
-        },
-        title: `Check Run ${action.charAt(0).toUpperCase() + action.slice(1)}`,
-        url: check_run.html_url,
-        description: `**${check_run.name}**\nStatus: ${check_run.status}\nConclusion: ${check_run.conclusion || 'N/A'}`,
-        fields: [
-          { name: 'Repository', value: repository.full_name, inline: true },
-          { name: 'Commit', value: check_run.head_sha?.slice(0, 7) || 'N/A', inline: true }
-        ],
-        footer: {
-          text: `GitHub`,
-          icon_url: 'https://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png'
-        },
-        timestamp: new Date().toISOString()
-      };
-
-      await sendToDiscord(embed);
-    }
-    
-    else if (event === 'check_suite') {
-      const { action, check_suite, repository, sender } = payload;
-      
-      const relevantActions = ['requested', 'completed', 'rerequested'];
-      if (!relevantActions.includes(action)) return res.status(200).send('OK');
-      
-      const embed = {
-        color: action === 'completed' ? (check_suite?.conclusion === 'success' ? 0x2ecc71 : 0xe74c3c) : 0x516989,
-        author: {
-          name: sender.login,
-          icon_url: sender.avatar_url,
-          url: sender.html_url
-        },
-        title: `Check Suite ${action.charAt(0).toUpperCase() + action.slice(1)}`,
-        url: repository.html_url,
-        description: `Check suite for ${repository.full_name}\nStatus: ${check_suite?.status || 'N/A'}\nConclusion: ${check_suite?.conclusion || 'N/A'}`,
-        footer: {
-          text: `GitHub`,
-          icon_url: 'https://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png'
-        },
-        timestamp: new Date().toISOString()
-      };
-
-      await sendToDiscord(embed);
-    }
-    
     else if (event === 'code_scanning_alert') {
       const { action, alert, repository, sender } = payload;
       
@@ -713,62 +664,6 @@ module.exports = async (req, res) => {
         title: action === 'created' ? 'Deploy Key Created' : 'Deploy Key Deleted',
         url: repository.html_url,
         description: `${sender.login} ${action === 'created' ? 'added' : 'removed'} deploy key "${key?.title || 'Unknown'}" in ${repository.full_name}`,
-        footer: {
-          text: `GitHub`,
-          icon_url: 'https://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png'
-        },
-        timestamp: new Date().toISOString()
-      };
-
-      await sendToDiscord(embed);
-    }
-    
-    else if (event === 'deployment') {
-      const { action, deployment, repository, sender } = payload;
-      
-      const embed = {
-        color: action === 'created' ? 0x9c3712 : 0xe74c3c,
-        author: {
-          name: sender.login,
-          icon_url: sender.avatar_url,
-          url: sender.html_url
-        },
-        title: action === 'created' ? 'Deployment Created' : 'Deployment Deleted',
-        url: repository.html_url,
-        description: `${sender.login} ${action === 'created' ? 'created' : 'deleted'} deployment for ${repository.full_name}\nEnvironment: ${deployment?.environment || 'N/A'}\nBranch: ${deployment?.ref || 'N/A'}`,
-        footer: {
-          text: `GitHub`,
-          icon_url: 'https://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png'
-        },
-        timestamp: new Date().toISOString()
-      };
-
-      await sendToDiscord(embed);
-    }
-    
-    else if (event === 'deployment_status') {
-      const { deployment_status, deployment, repository, sender } = payload;
-      
-      let color;
-      if (deployment_status.state === 'success') color = 0x2ecc71;
-      else if (deployment_status.state === 'failure') color = 0xe74c3c;
-      else if (deployment_status.state === 'pending') color = 0xf1c40f;
-      else color = 0x516989;
-      
-      const embed = {
-        color: color,
-        author: {
-          name: sender.login,
-          icon_url: sender.avatar_url,
-          url: sender.html_url
-        },
-        title: `Deployment Status: ${deployment_status.state}`,
-        url: deployment_status.target_url || deployment.html_url,
-        description: `Environment: ${deployment.environment || 'N/A'}\n${deployment_status.description || ''}`,
-        fields: [
-          { name: 'Repository', value: repository.full_name, inline: true },
-          { name: 'Commit', value: deployment.sha?.slice(0, 7) || 'N/A', inline: true }
-        ],
         footer: {
           text: `GitHub`,
           icon_url: 'https://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png'
@@ -1091,40 +986,6 @@ module.exports = async (req, res) => {
       await sendToDiscord(embed);
     }
     
-    else if (event === 'status') {
-      const { state, branches, repository, sender, sha, context, target_url, description } = payload;
-      
-      let color;
-      if (state === 'success') color = 0x2ecc71;
-      else if (state === 'failure') color = 0xe74c3c;
-      else if (state === 'pending') color = 0xf1c40f;
-      else color = 0x95a5a6;
-      
-      const embed = {
-        color: color,
-        author: {
-          name: sender.login,
-          icon_url: sender.avatar_url,
-          url: sender.html_url
-        },
-        title: `Commit Status: ${state}`,
-        url: target_url || `https://github.com/${repository.full_name}/commit/${sha}`,
-        description: `**${context || 'Unknown context'}**\n${description || ''}`,
-        fields: [
-          { name: 'Repository', value: repository.full_name, inline: true },
-          { name: 'Commit', value: sha?.slice(0, 7) || 'N/A', inline: true },
-          { name: 'Branches', value: branches?.map(b => b.name).join(', ') || 'N/A', inline: false }
-        ],
-        footer: {
-          text: `GitHub`,
-          icon_url: 'https://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png'
-        },
-        timestamp: new Date().toISOString()
-      };
-
-      await sendToDiscord(embed);
-    }
-    
     else if (event === 'team_add') {
       const { team, repository, sender } = payload;
       
@@ -1163,76 +1024,6 @@ module.exports = async (req, res) => {
         title: 'Wiki Updated',
         url: repository.html_url,
         description: `${sender.login} updated wiki pages in ${repository.full_name}\n\n${pageUpdates}`,
-        footer: {
-          text: `GitHub`,
-          icon_url: 'https://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png'
-        },
-        timestamp: new Date().toISOString()
-      };
-
-      await sendToDiscord(embed);
-    }
-    
-    else if (event === 'workflow_job') {
-      const { action, workflow_job, repository, sender } = payload;
-      
-      let color;
-      if (workflow_job.conclusion === 'success') color = 0x2ecc71;
-      else if (workflow_job.conclusion === 'failure') color = 0xe74c3c;
-      else if (workflow_job.conclusion === 'cancelled') color = 0x95a5a6;
-      else if (workflow_job.status === 'queued' || workflow_job.status === 'waiting') color = 0xf1c40f;
-      else color = 0x516989;
-      
-      const embed = {
-        color: color,
-        author: {
-          name: sender.login,
-          icon_url: sender.avatar_url,
-          url: sender.html_url
-        },
-        title: `Workflow Job: ${action}`,
-        url: workflow_job.html_url,
-        description: `**${workflow_job.name}**\nStatus: ${workflow_job.status}\nConclusion: ${workflow_job.conclusion || 'N/A'}`,
-        fields: [
-          { name: 'Repository', value: repository.full_name, inline: true },
-          { name: 'Runner', value: workflow_job.runner_name || 'N/A', inline: true }
-        ],
-        footer: {
-          text: `GitHub`,
-          icon_url: 'https://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png'
-        },
-        timestamp: new Date().toISOString()
-      };
-
-      await sendToDiscord(embed);
-    }
-    
-    else if (event === 'workflow_run') {
-      const { action, workflow_run, repository, sender } = payload;
-      
-      let color;
-      if (workflow_run.conclusion === 'success') color = 0x2ecc71;
-      else if (workflow_run.conclusion === 'failure') color = 0xe74c3c;
-      else if (workflow_run.conclusion === 'cancelled') color = 0x95a5a6;
-      else if (workflow_run.status === 'in_progress') color = 0x516989;
-      else if (workflow_run.status === 'requested') color = 0xf1c40f;
-      else color = 0x516989;
-      
-      const embed = {
-        color: color,
-        author: {
-          name: sender.login,
-          icon_url: sender.avatar_url,
-          url: sender.html_url
-        },
-        title: `Workflow Run: ${action}`,
-        url: workflow_run.html_url,
-        description: `**${workflow_run.name || workflow_run.workflow?.name || 'Unknown'}**\nStatus: ${workflow_run.status}\nConclusion: ${workflow_run.conclusion || 'N/A'}`,
-        fields: [
-          { name: 'Repository', value: repository.full_name, inline: true },
-          { name: 'Event', value: workflow_run.event || 'N/A', inline: true },
-          { name: 'Branch', value: workflow_run.head_branch || 'N/A', inline: true }
-        ],
         footer: {
           text: `GitHub`,
           icon_url: 'https://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png'
@@ -1301,7 +1092,8 @@ module.exports = async (req, res) => {
 
       await sendToDiscord(embed);
     }
-        else if (event === 'issue_dependencies') {
+    
+    else if (event === 'issue_dependencies') {
       const { action, added_dependencies, removed_dependencies, repository, sender } = payload;
       
       const changes = [];
@@ -1332,7 +1124,7 @@ module.exports = async (req, res) => {
       await sendToDiscord(embed);
     }
     
-      else if (event === 'public') {
+    else if (event === 'public') {
       const { repository, sender } = payload;
       
       const embed = {
