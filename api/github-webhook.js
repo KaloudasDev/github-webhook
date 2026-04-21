@@ -120,7 +120,6 @@ module.exports = async (req, res) => {
       await sendToDiscord(embed);
     }
     
-    // ==================== PULL REQUESTS ====================
     else if (event === 'pull_request') {
       const { action, pull_request, repository, sender } = payload;
       
@@ -190,7 +189,6 @@ module.exports = async (req, res) => {
       await sendToDiscord(embed);
     }
     
-    // ==================== ISSUES ====================
     else if (event === 'issues') {
       const { action, issue, repository, sender, label, assignee } = payload;
       
