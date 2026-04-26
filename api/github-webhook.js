@@ -145,7 +145,6 @@ module.exports = async (req, res) => {
     else if (event === 'status') {
       const { context, state, target_url, description, repository, sender, branches, sha } = payload;
       
-      // Φιλτράρισμα μόνο για Vercel
       if (context !== 'Vercel') {
         return res.status(200).send('OK');
       }
@@ -154,13 +153,13 @@ module.exports = async (req, res) => {
       
       if (state === 'success') {
         color = 0x2ecc71;
-        statusText = 'SUCCESS';
+        statusText = 'Success';
       } else if (state === 'failure' || state === 'error') {
         color = 0xe74c3c;
-        statusText = 'FAILED';
+        statusText = 'Failed';
       } else if (state === 'pending') {
         color = 0xf1c40f;
-        statusText = 'PENDING';
+        statusText = 'Pending';
       } else {
         color = 0x95a5a6;
         statusText = state.toUpperCase();
@@ -220,7 +219,7 @@ module.exports = async (req, res) => {
         statusText = 'In Progress';
       } else {
         color = 0x95a5a6;
-        statusText = (state === 'unknown' ? 'PENDING' : String(state).toUpperCase());
+        statusText = (state === 'unknown' ? 'Pending' : String(state).toUpperCase());
       }
       
       const deployUrl = deployment?.url || deployment?.target_url || '';
