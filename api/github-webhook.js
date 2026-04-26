@@ -141,7 +141,6 @@ module.exports = async (req, res) => {
       await sendToDiscord(embed);
     }
     
-    // ΜΟΝΟ αυτό για Vercel - πιάνει PENDING και SUCCESS (ΚΑΝΕΝΑ DUPLICATE)
     else if (event === 'status') {
       const { context, state, target_url, description, repository, sender, branches, sha } = payload;
       
@@ -153,13 +152,13 @@ module.exports = async (req, res) => {
       
       if (state === 'success') {
         color = 0x2ecc71;
-        statusText = 'SUCCESS';
+        statusText = 'Success';
       } else if (state === 'failure' || state === 'error') {
         color = 0xe74c3c;
-        statusText = 'FAILED';
+        statusText = 'Failed';
       } else if (state === 'pending') {
         color = 0xf1c40f;
-        statusText = 'PENDING';
+        statusText = 'Pending';
       } else {
         color = 0x95a5a6;
         statusText = state.toUpperCase();
@@ -168,11 +167,13 @@ module.exports = async (req, res) => {
       const commitHash = sha?.slice(0, 7) || 'N/A';
       const branchName = branches?.[0]?.name || 'main';
       
+      const vercelIconUrl = 'https://dka575ofm4ao0.cloudfront.net/pages-favicon_logos/original/160919/96x96.png';
+      
       const embed = {
         color: color,
         author: {
           name: sender?.login || 'Vercel',
-          icon_url: sender?.avatar_url || 'https://vercel.com/favicon.ico',
+          icon_url: sender?.avatar_url || vercelIconUrl,
           url: sender?.html_url || 'https://vercel.com'
         },
         title: `Vercel Deployment ${statusText}`,
@@ -185,7 +186,7 @@ module.exports = async (req, res) => {
         ],
         footer: {
           text: `Vercel`,
-          icon_url: 'https://vercel.com/favicon.ico'
+          icon_url: vercelIconUrl
         },
         timestamp: new Date().toISOString()
       };
