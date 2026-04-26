@@ -149,13 +149,13 @@ module.exports = async (req, res) => {
       
       if (state === 'success' || state === 'ready') {
         color = 0x2ecc71;
-        statusText = 'SUCCESS';
+        statusText = 'Success';
       } else if (state === 'failure' || state === 'error') {
         color = 0xe74c3c;
-        statusText = 'FAILED';
+        statusText = 'Failed';
       } else if (state === 'pending' || state === 'queued' || state === 'in_progress') {
         color = 0xf1c40f;
-        statusText = 'IN PROGRESS';
+        statusText = 'In Progress';
       } else {
         color = 0x95a5a6;
         statusText = (state || 'UNKNOWN').toUpperCase();
