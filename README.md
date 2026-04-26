@@ -1,46 +1,70 @@
 # GitHub to Discord Webhook Service
 
-[![Deployed on Vercel](https://img.shields.io/badge/Deployed%20on-Vercel-black.svg)](https://vercel.com)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![GitHub Release](https://img.shields.io/github/v/release/KaloudasDev/github-webhook)](https://github.com/KaloudasDev/github-webhook/releases)
-[![GitHub Stars](https://img.shields.io/github/stars/KaloudasDev/github-webhook)](https://github.com/KaloudasDev/github-webhook/stargazers)
-[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](https://github.com/KaloudasDev/github-webhook/pulls)
+[![Deployed on Vercel](https://img.shields.io/badge/Deployed%20on-Vercel-black.svg?logo=vercel&logoColor=white)](https://vercel.com)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?logo=opensourceinitiative&logoColor=yellow)](https://opensource.org/licenses/MIT)
+[![GitHub Release](https://img.shields.io/github/v/release/KaloudasDev/github-webhook?logo=github)](https://github.com/KaloudasDev/github-webhook/releases)
+[![GitHub Stars](https://img.shields.io/github/stars/KaloudasDev/github-webhook?logo=github&color=gold)](https://github.com/KaloudasDev/github-webhook/stargazers)
+[![Node.js](https://img.shields.io/badge/Node.js-18.x-339933?logo=nodedotjs&logoColor=white)](https://nodejs.org/)
 
 A universal webhook service that forwards GitHub events to Discord with beautiful, information-rich embeds.  
-Deploy once, use across all your repositories, completely free, open-source, serverless, and scalable.
+Supports Vercel deployment status tracking via commit status events with PENDING → SUCCESS/FAILED flow.
 
 ## Features
 
 - **Universal Service** - One endpoint for all your GitHub repositories
 - **Rich Discord Embeds** - Beautiful, well-formatted messages with all relevant information
-- **Accurate Commit Stats** - Shows real line additions/deletions using GitHub API (supports private repos)
-- **Multiple Event Support** - Handles pushes, pull requests, issues, stars, forks, releases, and more
-- **Zero Configuration** - Just add your Discord webhook URL and you're ready to go
-- **Ready for Vercel** - Deploy instantly with Vercel's serverless platform
+- **Accurate Commit Stats** - Shows real line additions/deletions using GitHub API
+- **Vercel Integration** - Automatically tracks deployment status (PENDING, SUCCESS, FAILED)
+- **Zero Duplicate Notifications** - Smart event deduplication
+- **Multiple Event Support** - Handles 30+ GitHub event types
+- **No Configuration Needed** - Just add your Discord webhook URL
 
 ## Supported Events
 
 | Event | Description |
 |-------|-------------|
-| **Push** | New commits pushed to a branch |
-| **Pull Request** | PR opened, closed, merged, or reopened |
-| **Issues** | Issue opened, closed, assigned, labeled |
-| **Issue Comments** | New comments on issues |
+| **Push** | New commits pushed to a branch with file stats |
+| **Pull Request** | PR opened, closed, merged, reopened, synchronized, labeled, etc. |
+| **Issues** | Issue opened, closed, assigned, labeled, milestoned, etc. |
+| **Issue Comments** | Comments on issues (created, edited, deleted) |
 | **Stars** | Repository starred or unstarred |
 | **Forks** | Repository forked |
 | **Releases** | Release published, created, edited, or deleted |
 | **Branch/Tag Creation** | New branches or tags created |
 | **Branch/Tag Deletion** | Branches or tags deleted |
 | **Watching** | User started watching repository |
-| **Collaborators** | New collaborator added |
+| **Collaborators** | Collaborator added, removed, or permissions changed |
 | **Commit Comments** | Comments on commits |
+| **Discussions** | Discussions created, edited, answered, etc. |
+| **Discussion Comments** | Comments on discussions |
+| **Labels** | Labels created, edited, or deleted |
+| **Milestones** | Milestones created, closed, opened, deleted |
+| **Packages** | Packages published or updated |
+| **Pages Build** | GitHub Pages build status |
+| **Pull Request Reviews** | PR reviews (approved, changes requested, commented) |
+| **Pull Request Review Comments** | Comments on PR reviews |
+| **Repository** | Repository created, deleted, archived, made public/private |
+| **Repository Rulesets** | Repository ruleset created, edited, deleted |
+| **Secret Scanning Alerts** | Secret scanning alerts for security issues |
+| **Team Add** | Team added to repository |
+| **Wiki (Gollum)** | Wiki page updates |
+| **Branch Protection Rules** | Branch protection rule created, edited, deleted |
+| **Branch Protection Configuration** | Branch protections enabled/disabled |
+| **Code Scanning Alerts** | Code scanning alert created, fixed, closed, reopened |
+| **Dependabot Alerts** | Dependabot security alerts |
+| **Deploy Keys** | Deploy keys created or deleted |
+| **Security & Analysis** | Security features enabled/disabled |
+| **Issue Dependencies** | Issue dependencies added or removed |
+| **Repository Made Public** | Repository visibility changed to public |
+| **Vercel Deployments** | Deployment PENDING → SUCCESS/FAILED (via commit status) |
 
 ## How It Works
 
 1. GitHub sends a webhook event to your Vercel endpoint
-2. The service processes the event and fetches accurate commit stats via GitHub API (if needed)
-3. Creates a formatted Discord embed with all relevant information
-4. The embed is sent to your configured Discord channel
+2. The service processes the event with smart deduplication (prevents duplicate notifications)
+3. For push events, fetches accurate commit stats via GitHub API
+4. Creates a formatted Discord embed with all relevant information
+5. For Vercel deployments, tracks status via `status` events (PENDING → SUCCESS/FAILED)
 
 ## Deployment
 
@@ -62,20 +86,20 @@ Add these environment variables to your Vercel project:
 
 | Variable | Description | Required |
 |----------|-------------|----------|
-| `DISCORD_GITHUB_WEBHOOK_URL` | Your Discord webhook URL | Yes |
-| `GITHUB_TOKEN` | GitHub Personal Access Token (For Private Repos) | Optional* |
+| `DISCORD_GITHUB_WEBHOOK_URL` | Your Discord webhook URL | **Yes** |
+| `GITHUB_TOKEN` | GitHub Personal Access Token | **Recommended** |
 
-*\*Required only if you want accurate commit stats for private repositories. Public repos work without it.*
+> [!IMPORTANT]
+> The `GITHUB_TOKEN` is **strongly recommended** for both public and private repositories to get accurate commit statistics (additions/deletions). Without it, commit stats may show 0 lines.
 
 ### 3. Create Discord Webhook
 
 1. Go to your Discord server → Channel Settings → Integrations → Webhooks
 2. Create a new webhook named "GitHub"
 3. Copy the webhook URL
+4. Add it as `DISCORD_GITHUB_WEBHOOK_URL` in Vercel
 
-### 4. Create GitHub Personal Access Token (for private repos)
-
-If you plan to use this service with private repositories, you need a GitHub token:
+### 4. Create GitHub Personal Access Token
 
 1. GitHub → Settings → Developer settings → Personal access tokens → Tokens (classic)
 2. Generate new token (classic)
@@ -83,9 +107,7 @@ If you plan to use this service with private repositories, you need a GitHub tok
 4. **Expiration**: No expiration (or as preferred)
 5. **Scopes**: Select `repo` (Full control of private repositories)
 6. Generate and copy the token (e.g., `ghp_xxxxxxxxxxxx`)
-
-> [!IMPORTANT]
-> The token is required only for private repositories. Public repos work without it.
+7. Add it as `GITHUB_TOKEN` in Vercel
 
 ### 5. Configure GitHub Webhook
 
@@ -95,50 +117,21 @@ For each repository you want to monitor:
 2. **Payload URL**: `https://your-project.vercel.app/api/github-webhook`
 3. **Content type**: `application/json`
 4. **Secret**: Leave empty (optional)
-5. **Events**: Select "Let me select individual events" and choose:
+5. **Events**: Select **"Send me everything"** (Recommended) or choose individual events:
    - Push
-   - Pull Requests
-   - Issues (Optional)
-   - Stars (Optional)
+   - Pull requests
+   - Issues
+   - Issue comments
+   - Stars
+   - Forks
+   - Releases
+   - Discussions
+   - And more...
 6. Click **Add webhook**
-
-## Example Embeds
-
-### Push Event
-```
-KaloudasDev/github-webhook
-[abc1234] Update README — KaloudasDev
-
-Files: 1
-Additions: +5 Lines
-Deletions: -2 Lines
-GitHub
-```
-
-### Pull Request Event
-```
-KaloudasDev/github-webhook - Pull Request Opened
-Add new feature
-
-Branch: feature → main
-Commits: 3
-Changes: +156 / -23 Lines
-GitHub
-```
-
-### Issue Event
-```
-KaloudasDev/github-webhook - Issue Opened
-Bug: Login not working
-
-Issue: #42
-Comments: 2
-GitHub
-```
 
 ## Testing
 
-You can test if your service is running:
+Test if your service is running:
 
 ```bash
 curl https://your-project.vercel.app/api/github-webhook
@@ -154,10 +147,9 @@ Expected response:
 }
 ```
 
-To test with a real commit:
+Test with a real commit:
 
 ```bash
-# Add a test line to any file
 echo "// test" >> your-file.js
 git add your-file.js
 git commit -m "Test: Verify commit stats"
@@ -166,30 +158,23 @@ git push
 
 Check your Discord channel for the embed with accurate stats.
 
-## Project Structure
-
-```
-github-webhook/
-├── api/
-│   └── github-webhook.js    # Main webhook handler
-├── package.json              # Dependencies and metadata
-├── vercel.json              # Vercel configuration
-└── README.md                # This file
-```
-
 ## Environment Variables Summary
 
 | Variable | Purpose | Required |
 |----------|---------|----------|
-| `DISCORD_GITHUB_WEBHOOK_URL` | Discord webhook destination | Yes |
-| `GITHUB_TOKEN` | GitHub API token for private repo stats | For private repos only |
+| `DISCORD_GITHUB_WEBHOOK_URL` | Discord webhook destination | **Yes** |
+| `GITHUB_TOKEN` | GitHub API token for accurate commit stats | **Recommended** |
 
 ## Troubleshooting
 
 ### Commit stats show 0 lines
 - Ensure `GITHUB_TOKEN` is set correctly in Vercel
 - Verify token has `repo` scope
-- For public repos, token is not required
+- Token is needed for BOTH public and private repos for accurate stats
+
+### Duplicate Vercel notifications
+- The service only uses `status` events for Vercel (not `deployment` or `deployment_status`)
+- This prevents duplicate notifications
 
 ### Webhook returns 404
 - Verify the URL is `https://your-project.vercel.app/api/github-webhook`
@@ -198,6 +183,16 @@ github-webhook/
 ### No Discord message received
 - Verify `DISCORD_GITHUB_WEBHOOK_URL` is correct
 - Check Vercel logs for errors
+
+### Vercel deployment shows UNKNOWN
+- Make sure you're using the latest code with the `status` event handler
+- Vercel sends deployment status via `status` event with `context: 'Vercel'`
+
+## Rate Limiting
+
+The service implements smart caching:
+- Prevents duplicate processing of the same webhook delivery (10 second window)
+- Automatic cleanup of old cache entries
 
 ## License
 
@@ -209,3 +204,4 @@ Contributions are welcome! Please ensure:
 - Code follows existing patterns
 - All events are handled properly
 - Discord embeds remain clean and informative
+- No duplicate notifications for the same event
