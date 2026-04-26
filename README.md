@@ -7,14 +7,14 @@
 [![Node.js](https://img.shields.io/badge/Node.js-18.x-339933?logo=nodedotjs&logoColor=white)](https://nodejs.org/)
 
 A universal webhook service that forwards GitHub events to Discord with beautiful, information-rich embeds.  
-Supports Vercel deployment status tracking via commit status events with PENDING → SUCCESS/FAILED flow.
+Supports Vercel deployment status tracking via commit status events with Pending → Success/Failed flow.
 
 ## Features
 
 - **Universal Service** - One endpoint for all your GitHub repositories
 - **Rich Discord Embeds** - Beautiful, well-formatted messages with all relevant information
 - **Accurate Commit Stats** - Shows real line additions/deletions using GitHub API
-- **Vercel Integration** - Automatically tracks deployment status (PENDING, SUCCESS, FAILED)
+- **Vercel Integration** - Automatically tracks deployment status
 - **Zero Duplicate Notifications** - Smart event deduplication
 - **Multiple Event Support** - Handles 30+ GitHub event types
 - **No Configuration Needed** - Just add your Discord webhook URL
