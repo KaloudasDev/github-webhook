@@ -64,7 +64,7 @@ Supports Vercel deployment status tracking via commit status events with Pending
 2. The service processes the event with smart deduplication (prevents duplicate notifications)
 3. For push events, fetches accurate commit stats via GitHub API
 4. Creates a formatted Discord embed with all relevant information
-5. For Vercel deployments, tracks status via `status` events (PENDING → SUCCESS/FAILED)
+5. For Vercel deployments, tracks status via `status` events
 
 ## Deployment
 
