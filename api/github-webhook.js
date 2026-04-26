@@ -141,7 +141,6 @@ module.exports = async (req, res) => {
       await sendToDiscord(embed);
     }
     
-    // FIX: Το παλιό event που δούλευε για Vercel!
     else if (event === 'status') {
       const { context, state, target_url, description, repository, sender, branches, sha } = payload;
       
@@ -153,13 +152,13 @@ module.exports = async (req, res) => {
       
       if (state === 'success') {
         color = 0x2ecc71;
-        statusText = 'Success';
+        statusText = 'SUCCESS';
       } else if (state === 'failure' || state === 'error') {
         color = 0xe74c3c;
-        statusText = 'Failed';
+        statusText = 'FAILED';
       } else if (state === 'pending') {
         color = 0xf1c40f;
-        statusText = 'Pending';
+        statusText = 'PENDING';
       } else {
         color = 0x95a5a6;
         statusText = state.toUpperCase();
@@ -177,128 +176,11 @@ module.exports = async (req, res) => {
         },
         title: `Vercel Deployment ${statusText}`,
         url: target_url || repository?.html_url || 'https://vercel.com',
-        description: description || `Deployment ${state} for ${repository?.full_name || 'repository'}`,
+        description: description || `${state.toUpperCase()} for ${repository?.full_name || 'repository'}`,
         fields: [
           { name: 'Repository', value: repository?.full_name || 'Unknown', inline: true },
           { name: 'Commit', value: `\`${commitHash}\``, inline: true },
-          { name: 'Branch', value: branchName, inline: true },
-          { name: 'Context', value: context, inline: true }
-        ],
-        footer: {
-          text: `Vercel`,
-          icon_url: 'https://assets.vercel.com/image/upload/v1588805858/frontend/favicon/vercel/180x180.png'
-        },
-        timestamp: new Date().toISOString()
-      };
-
-      await sendToDiscord(embed);
-    }
-    
-    else if (event === 'deployment_status') {
-      const { deployment, repository, sender } = payload;
-      
-      let color, statusText;
-      
-      const state = payload.state ||
-                    payload.status ||
-                    deployment?.state ||
-                    deployment?.status ||
-                    deployment?.deployment_status?.state ||
-                    'unknown';
-      
-      const normalizedState = String(state).toLowerCase();
-      
-      if (normalizedState === 'success' || normalizedState === 'ready' || normalizedState === 'succeeded') {
-        color = 0x2ecc71;
-        statusText = 'Success';
-      } else if (normalizedState === 'failure' || normalizedState === 'error' || normalizedState === 'failed') {
-        color = 0xe74c3c;
-        statusText = 'Failed';
-      } else if (normalizedState === 'pending' || normalizedState === 'queued' || normalizedState === 'in_progress' || normalizedState === 'created' || normalizedState === 'building') {
-        color = 0xf1c40f;
-        statusText = 'In Progress';
-      } else {
-        color = 0x95a5a6;
-        statusText = (state === 'unknown' ? 'Pending' : String(state).toUpperCase());
-      }
-      
-      const deployUrl = deployment?.url || deployment?.target_url || '';
-      const logsUrl = deployment?.logs_url || (deployUrl ? `${deployUrl}/_logs` : '');
-      const commitHash = deployment?.sha?.slice(0, 7) || 'N/A';
-      const environment = deployment?.environment || payload.environment || 'production';
-      const description = deployment?.description || `Deployment ${statusText} for ${repository?.full_name || 'repository'}`;
-      
-      const embed = {
-        color: color,
-        author: {
-          name: sender?.login || 'Vercel',
-          icon_url: sender?.avatar_url || 'https://assets.vercel.com/image/upload/v1588805858/frontend/favicon/vercel/180x180.png',
-          url: sender?.html_url || 'https://vercel.com'
-        },
-        title: `Vercel Deployment ${statusText}`,
-        url: deployUrl || repository?.html_url || 'https://vercel.com',
-        description: description,
-        fields: [
-          { name: 'Repository', value: repository?.full_name || 'Unknown', inline: true },
-          { name: 'Commit', value: `\`${commitHash}\``, inline: true },
-          { name: 'Environment', value: environment, inline: true },
-          { name: 'Deployment URL', value: deployUrl ? `[Click here](${deployUrl})` : 'N/A', inline: true },
-          { name: 'Logs', value: logsUrl ? `[View Logs](${logsUrl})` : 'N/A', inline: true },
-          { name: 'Created By', value: deployment?.creator?.login || sender?.login || 'Unknown', inline: true }
-        ],
-        footer: {
-          text: `Vercel`,
-          icon_url: 'https://assets.vercel.com/image/upload/v1588805858/frontend/favicon/vercel/180x180.png'
-        },
-        timestamp: new Date().toISOString()
-      };
-
-      await sendToDiscord(embed);
-    }
-    
-    else if (event === 'deployment') {
-      const { deployment, repository, sender } = payload;
-      
-      let color, statusText;
-      const state = deployment?.state || 'created';
-      const normalizedState = String(state).toLowerCase();
-      
-      if (normalizedState === 'success') {
-        color = 0x2ecc71;
-        statusText = 'Success';
-      } else if (normalizedState === 'failure' || normalizedState === 'error') {
-        color = 0xe74c3c;
-        statusText = 'Failed';
-      } else if (normalizedState === 'pending' || normalizedState === 'queued' || normalizedState === 'in_progress' || normalizedState === 'created') {
-        color = 0xf1c40f;
-        statusText = 'In Progress';
-      } else {
-        color = 0x95a5a6;
-        statusText = (state || 'CREATED').toUpperCase();
-      }
-      
-      const deployUrl = deployment?.url || deployment?.target_url || '';
-      const commitHash = deployment?.sha?.slice(0, 7) || 'N/A';
-      const environment = deployment?.environment || 'production';
-      const task = deployment?.task || 'deploy';
-      
-      const embed = {
-        color: color,
-        author: {
-          name: sender?.login || 'Vercel',
-          icon_url: sender?.avatar_url || 'https://assets.vercel.com/image/upload/v1588805858/frontend/favicon/vercel/180x180.png',
-          url: sender?.html_url || 'https://vercel.com'
-        },
-        title: `Vercel Deployment ${statusText}`,
-        url: deployUrl || repository?.html_url || 'https://vercel.com',
-        description: `Deployment ${statusText} for ${repository?.full_name || 'repository'}`,
-        fields: [
-          { name: 'Repository', value: repository?.full_name || 'Unknown', inline: true },
-          { name: 'Commit', value: `\`${commitHash}\``, inline: true },
-          { name: 'Environment', value: environment, inline: true },
-          { name: 'Task', value: task, inline: true },
-          { name: 'Deployment URL', value: deployUrl ? `[Click here](${deployUrl})` : 'N/A', inline: true },
-          { name: 'Created By', value: deployment?.creator?.login || sender?.login || 'Unknown', inline: true }
+          { name: 'Branch', value: branchName, inline: true }
         ],
         footer: {
           text: `Vercel`,
