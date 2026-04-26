@@ -141,6 +141,7 @@ module.exports = async (req, res) => {
       await sendToDiscord(embed);
     }
     
+    // ΜΟΝΟ αυτό για Vercel - πιάνει PENDING και SUCCESS (ΚΑΝΕΝΑ DUPLICATE)
     else if (event === 'status') {
       const { context, state, target_url, description, repository, sender, branches, sha } = payload;
       
@@ -171,7 +172,7 @@ module.exports = async (req, res) => {
         color: color,
         author: {
           name: sender?.login || 'Vercel',
-          icon_url: sender?.avatar_url || 'https://assets.vercel.com/image/upload/v1588805858/frontend/favicon/vercel/180x180.png',
+          icon_url: sender?.avatar_url || 'https://vercel.com/favicon.ico',
           url: sender?.html_url || 'https://vercel.com'
         },
         title: `Vercel Deployment ${statusText}`,
@@ -184,7 +185,7 @@ module.exports = async (req, res) => {
         ],
         footer: {
           text: `Vercel`,
-          icon_url: 'https://assets.vercel.com/image/upload/v1588805858/frontend/favicon/vercel/180x180.png'
+          icon_url: 'https://vercel.com/favicon.ico'
         },
         timestamp: new Date().toISOString()
       };
