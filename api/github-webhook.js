@@ -142,30 +142,29 @@ module.exports = async (req, res) => {
     }
     
     else if (event === 'deployment_status') {
-      const { deployment, repository, sender } = payload;
+  const { deployment, repository, sender, state } = payload;
+  
+  let color, statusText;
+  
+  if (state === 'success' || state === 'ready') {
+    color = 0x2ecc71;
+    statusText = 'Success';
+  } else if (state === 'failure' || state === 'error') {
+    color = 0xe74c3c;
+    statusText = 'Failed';
+  } else if (state === 'pending' || state === 'queued' || state === 'in_progress') {
+    color = 0xf1c40f;
+    statusText = 'In Progress';
+  } else {
+    color = 0x95a5a6;
+    statusText = (state || 'UNKNOWN').toUpperCase();
+  }
       
-      let color, statusText;
-      const state = deployment?.state || payload.state;
-      
-      if (state === 'success' || state === 'ready') {
-        color = 0x2ecc71;
-        statusText = 'Success';
-      } else if (state === 'failure' || state === 'error') {
-        color = 0xe74c3c;
-        statusText = 'Failed';
-      } else if (state === 'pending' || state === 'queued' || state === 'in_progress') {
-        color = 0xf1c40f;
-        statusText = 'In Progress';
-      } else {
-        color = 0x95a5a6;
-        statusText = (state || 'UNKNOWN').toUpperCase();
-      }
-      
-      const deployUrl = deployment?.url || deployment?.target_url || '';
-      const logsUrl = deployment?.logs_url || (deployUrl ? `${deployUrl}/_logs` : '');
-      const commitHash = deployment?.sha?.slice(0, 7) || 'N/A';
-      const environment = deployment?.environment || payload.environment || 'production';
-      const description = deployment?.description || `Deployment ${state} for ${repository?.full_name || 'repository'}`;
+  const deployUrl = deployment?.url || deployment?.target_url || '';
+  const logsUrl = deployment?.logs_url || (deployUrl ? `${deployUrl}/_logs` : '');
+  const commitHash = deployment?.sha?.slice(0, 7) || 'N/A';
+  const environment = deployment?.environment || payload.environment || 'production';
+  const description = deployment?.description || `Deployment ${state} for ${repository?.full_name || 'repository'}`;
       
       const embed = {
         color: color,
